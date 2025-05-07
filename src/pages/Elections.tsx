@@ -1,100 +1,73 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import ElectionCard, { ElectionProps } from '@/components/elections/ElectionCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
-
-const mockElections: ElectionProps[] = [
-  {
-    id: '1',
-    title: 'Student Council Elections',
-    description: 'Vote for your representatives in the Student Council for the academic year 2025-2026.',
-    startDate: '2025-05-10',
-    endDate: '2025-05-17',
-    status: 'active',
-    candidateCount: 12,
-  },
-  {
-    id: '2',
-    title: 'Department Representative Election',
-    description: 'Choose your department representatives who will voice your concerns to the faculty.',
-    startDate: '2025-05-20',
-    endDate: '2025-05-25',
-    status: 'upcoming',
-    candidateCount: 8,
-  },
-  {
-    id: '3',
-    title: 'Club Leadership Selection',
-    description: 'Vote for the new leadership team for various clubs and societies on campus.',
-    startDate: '2025-04-15',
-    endDate: '2025-04-22',
-    status: 'completed',
-    candidateCount: 24,
-  },
-  {
-    id: '4',
-    title: 'Student Union Board Elections',
-    description: 'Select members who will manage student union affairs and budget.',
-    startDate: '2025-05-12',
-    endDate: '2025-05-19',
-    status: 'active',
-    candidateCount: 6,
-  },
-  {
-    id: '5',
-    title: 'Campus Improvement Committee',
-    description: 'Vote for students who will work with administration on campus improvement projects.',
-    startDate: '2025-06-01',
-    endDate: '2025-06-07',
-    status: 'upcoming',
-    candidateCount: 5,
-  },
-  {
-    id: '6',
-    title: 'Sports Council Elections',
-    description: 'Choose representatives for different sports categories for the Sports Council.',
-    startDate: '2025-04-01',
-    endDate: '2025-04-10',
-    status: 'completed',
-    candidateCount: 15,
-  },
-  {
-    id: '7',
-    title: 'Academic Committee Selection',
-    description: 'Select students who will represent peers in academic matters.',
-    startDate: '2025-05-08',
-    endDate: '2025-05-15',
-    status: 'active',
-    candidateCount: 10,
-  },
-  {
-    id: '8',
-    title: 'Residence Hall Representatives',
-    description: 'Choose representatives for each residence hall to improve dorm life.',
-    startDate: '2025-06-10',
-    endDate: '2025-06-17',
-    status: 'upcoming',
-    candidateCount: 12,
-  },
-  {
-    id: '9',
-    title: 'Cultural Committee Elections',
-    description: 'Select students who will organize cultural events throughout the year.',
-    startDate: '2025-03-20',
-    endDate: '2025-03-27',
-    status: 'completed',
-    candidateCount: 8,
-  },
-];
+import { useToast } from '@/hooks/use-toast';
 
 const Elections = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [elections, setElections] = useState<ElectionProps[]>([]);
+  const { toast } = useToast();
+  const navigate = useNavigate();
   
-  const activeElections = mockElections.filter(e => e.status === 'active');
-  const upcomingElections = mockElections.filter(e => e.status === 'upcoming');
-  const completedElections = mockElections.filter(e => e.status === 'completed');
+  useEffect(() => {
+    // Load elections from localStorage
+    const storedElections = localStorage.getItem('elections');
+    if (storedElections) {
+      const parsedElections = JSON.parse(storedElections);
+      
+      // Update status based on dates
+      const now = new Date();
+      const updatedElections = parsedElections.map((election: ElectionProps) => {
+        const startDate = new Date(election.startDate);
+        const endDate = new Date(election.endDate);
+        
+        let status: 'upcoming' | 'active' | 'completed' = 'upcoming';
+        if (now > endDate) {
+          status = 'completed';
+        } else if (now >= startDate && now <= endDate) {
+          status = 'active';
+        }
+        
+        return {
+          ...election,
+          status
+        };
+      });
+      
+      setElections(updatedElections);
+      localStorage.setItem('elections', JSON.stringify(updatedElections));
+    } else {
+      setElections([]);
+    }
+  }, []);
+
+  // Check if user is logged in and verified
+  useEffect(() => {
+    const currentUser = localStorage.getItem('currentUser');
+    if (!currentUser) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login to view and participate in elections.",
+      });
+      navigate('/login');
+    } else {
+      const user = JSON.parse(currentUser);
+      if (!user.verified) {
+        toast({
+          title: "Account Not Verified",
+          description: "Your account is pending verification. You can view elections but cannot vote until verified.",
+        });
+      }
+    }
+  }, [navigate, toast]);
+  
+  const activeElections = elections.filter(e => e.status === 'active');
+  const upcomingElections = elections.filter(e => e.status === 'upcoming');
+  const completedElections = elections.filter(e => e.status === 'completed');
 
   const filteredActive = activeElections.filter(election => 
     election.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
