@@ -2,6 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ElectionProps } from '@/components/elections/ElectionCard';
+import { Link } from 'react-router-dom';
 
 interface ElectionListProps {
   elections: ElectionProps[];
@@ -23,13 +24,20 @@ const ElectionList: React.FC<ElectionListProps> = ({ elections, onDelete }) => {
                 Status: <span className="font-medium capitalize">{election.status}</span> | Candidates: {election.candidateCount}
               </div>
             </div>
-            <Button 
-              variant="destructive" 
-              size="sm" 
-              onClick={() => onDelete(election.id)}
-            >
-              Delete
-            </Button>
+            <div className="flex space-x-2">
+              <Link to={`/elections/${election.id}`}>
+                <Button variant="outline" size="sm">
+                  View
+                </Button>
+              </Link>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={() => onDelete(election.id)}
+              >
+                Delete
+              </Button>
+            </div>
           </div>
         ))
       ) : (

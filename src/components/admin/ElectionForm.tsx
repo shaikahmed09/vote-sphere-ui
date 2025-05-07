@@ -27,9 +27,9 @@ export const electionSchema = z.object({
   title: z.string().min(5, { message: "Title must be at least 5 characters" }),
   description: z.string().min(20, { message: "Description must be at least 20 characters" }),
   startDate: z.string().refine(date => {
-    return new Date(date) >= new Date();
+    return new Date(date) >= new Date(new Date().setHours(0, 0, 0, 0));
   }, { 
-    message: "Start date must be in the future" 
+    message: "Start date must be today or in the future" 
   }),
   endDate: z.string().refine(date => {
     return true; // Initial validation always passes, we'll check against startDate in onSubmit
