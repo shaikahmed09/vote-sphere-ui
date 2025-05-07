@@ -29,16 +29,17 @@ import { ElectionProps } from '@/components/elections/ElectionCard';
 const electionSchema = z.object({
   title: z.string().min(5, { message: "Title must be at least 5 characters" }),
   description: z.string().min(20, { message: "Description must be at least 20 characters" }),
-  startDate: z.string().refine(date => new Date(date) >= new Date(), {
-    message: "Start date must be in the future",
+  startDate: z.string().refine(date => {
+    return new Date(date) >= new Date();
+  }, { 
+    message: "Start date must be in the future" 
   }),
-  endDate: z.string().refine(
-    (date, ctx) => {
-      const startDate = ctx.parent.startDate;
-      return new Date(date) > new Date(startDate);
-    },
-    { message: "End date must be after start date" }
-  ),
+  endDate: z.string().refine(date => {
+    // We can access startDate from the form in the custom validation message
+    return true; // Initial validation always passes, we'll check against startDate in onSubmit
+  }, { 
+    message: "End date must be after start date" 
+  }),
 });
 
 type ElectionFormValues = z.infer<typeof electionSchema>;
@@ -68,6 +69,15 @@ const ElectionManagement: React.FC = () => {
   }, []);
 
   const onSubmit = (values: ElectionFormValues) => {
+    // Additional validation for end date
+    if (new Date(values.endDate) <= new Date(values.startDate)) {
+      form.setError("endDate", {
+        type: "manual",
+        message: "End date must be after start date"
+      });
+      return;
+    }
+
     // Create a new election
     const newElection: ElectionProps = {
       id: `election-${Date.now()}`,
