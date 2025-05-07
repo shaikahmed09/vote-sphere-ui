@@ -2,63 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { ElectionProps } from '@/components/elections/ElectionCard';
-
-// Schema for election form validation
-const electionSchema = z.object({
-  title: z.string().min(5, { message: "Title must be at least 5 characters" }),
-  description: z.string().min(20, { message: "Description must be at least 20 characters" }),
-  startDate: z.string().refine(date => {
-    return new Date(date) >= new Date();
-  }, { 
-    message: "Start date must be in the future" 
-  }),
-  endDate: z.string().refine(date => {
-    // We can access startDate from the form in the custom validation message
-    return true; // Initial validation always passes, we'll check against startDate in onSubmit
-  }, { 
-    message: "End date must be after start date" 
-  }),
-});
-
-type ElectionFormValues = z.infer<typeof electionSchema>;
+import ElectionForm, { ElectionFormValues } from './ElectionForm';
+import ElectionList from './ElectionList';
 
 const ElectionManagement: React.FC = () => {
   const [elections, setElections] = useState<ElectionProps[]>([]);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const { toast } = useToast();
-
-  // Initialize the form
-  const form = useForm<ElectionFormValues>({
-    resolver: zodResolver(electionSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      startDate: "",
-      endDate: "",
-    },
-  });
 
   useEffect(() => {
     // Load elections from localStorage
@@ -68,16 +19,7 @@ const ElectionManagement: React.FC = () => {
     }
   }, []);
 
-  const onSubmit = (values: ElectionFormValues) => {
-    // Additional validation for end date
-    if (new Date(values.endDate) <= new Date(values.startDate)) {
-      form.setError("endDate", {
-        type: "manual",
-        message: "End date must be after start date"
-      });
-      return;
-    }
-
+  const handleAddElection = (values: ElectionFormValues) => {
     // Create a new election
     const newElection: ElectionProps = {
       id: `election-${Date.now()}`,
@@ -100,8 +42,7 @@ const ElectionManagement: React.FC = () => {
       description: `"${values.title}" has been successfully added.`,
     });
 
-    // Reset form
-    form.reset();
+    // Reset form and close
     setIsAddingNew(false);
   };
 
@@ -129,117 +70,9 @@ const ElectionManagement: React.FC = () => {
         </Button>
       </div>
 
-      {isAddingNew && (
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Create New Election</CardTitle>
-            <CardDescription>
-              Fill out the form to add a new election to the platform.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Student Council Election 2025" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Provide details about this election..." 
-                          className="min-h-[100px]" 
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="startDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Start Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="endDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>End Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <Button 
-                    type="submit" 
-                    className="bg-gradient-to-r from-election-purple to-election-dark-purple hover:opacity-90"
-                  >
-                    Create Election
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-      )}
+      {isAddingNew && <ElectionForm onSubmit={handleAddElection} />}
 
-      <div className="space-y-4">
-        {elections.length > 0 ? (
-          elections.map((election) => (
-            <div key={election.id} className="border rounded-md p-4 flex justify-between items-center">
-              <div>
-                <h3 className="font-medium">{election.title}</h3>
-                <p className="text-sm text-gray-500">
-                  {new Date(election.startDate).toLocaleDateString()} - {new Date(election.endDate).toLocaleDateString()}
-                </p>
-                <div className="text-xs text-gray-500 mt-1">
-                  Status: <span className="font-medium capitalize">{election.status}</span> | Candidates: {election.candidateCount}
-                </div>
-              </div>
-              <Button 
-                variant="destructive" 
-                size="sm" 
-                onClick={() => handleDelete(election.id)}
-              >
-                Delete
-              </Button>
-            </div>
-          ))
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            No elections added yet. Create a new election to get started.
-          </div>
-        )}
-      </div>
+      <ElectionList elections={elections} onDelete={handleDelete} />
     </div>
   );
 };
