@@ -1,53 +1,101 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
 import ElectionCard, { ElectionProps } from '@/components/elections/ElectionCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
-
-const mockActiveElections: ElectionProps[] = [
-  {
-    id: '1',
-    title: 'Student Council Elections',
-    description: 'Vote for your representatives in the Student Council for the academic year 2025-2026.',
-    startDate: '2025-05-10',
-    endDate: '2025-05-17',
-    status: 'active',
-    candidateCount: 12,
-  },
-  {
-    id: '4',
-    title: 'Student Union Board Elections',
-    description: 'Select members who will manage student union affairs and budget.',
-    startDate: '2025-05-12',
-    endDate: '2025-05-19',
-    status: 'active',
-    candidateCount: 6,
-  },
-];
+import { Link, useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 
 const Dashboard = () => {
-  const userVoteHistory = [
-    {
-      electionId: '3',
-      electionTitle: 'Club Leadership Selection',
-      votedFor: 'John Doe - President',
-      date: '2025-04-18',
-    },
-    {
-      electionId: '6',
-      electionTitle: 'Sports Council Elections',
-      votedFor: 'Jane Smith - Basketball Representative',
-      date: '2025-04-05',
-    },
-    {
-      electionId: '9',
-      electionTitle: 'Cultural Committee Elections',
-      votedFor: 'Michael Johnson - Drama Club Representative',
-      date: '2025-03-22',
-    },
-  ];
+  const [activeElections, setActiveElections] = useState<ElectionProps[]>([]);
+  const [userVoteHistory, setUserVoteHistory] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userVerified, setUserVerified] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Check if user is logged in
+    const currentUser = localStorage.getItem('currentUser');
+    if (!currentUser) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login to view your dashboard.",
+      });
+      navigate('/login');
+      return;
+    }
+
+    // Load user data
+    const user = JSON.parse(currentUser);
+    setUserVerified(user.verified || false);
+
+    // Load elections from localStorage
+    const storedElections = localStorage.getItem('elections');
+    if (storedElections) {
+      const allElections = JSON.parse(storedElections);
+      // Filter active elections
+      const active = allElections.filter((e: ElectionProps) => e.status === 'active');
+      setActiveElections(active);
+    }
+
+    // Load user votes
+    const storedVotes = localStorage.getItem('votes');
+    if (storedVotes && user.id) {
+      const allVotes = JSON.parse(storedVotes);
+      // Filter votes by this user
+      const userVotes = allVotes.filter((vote: any) => vote.userId === user.id);
+      
+      // Get election and candidate details for each vote
+      const voteHistory: any[] = [];
+      
+      userVotes.forEach((vote: any) => {
+        // Get election details
+        let electionTitle = "";
+        let candidateName = "";
+        
+        if (storedElections) {
+          const allElections = JSON.parse(storedElections);
+          const election = allElections.find((e: ElectionProps) => e.id === vote.electionId);
+          if (election) {
+            electionTitle = election.title;
+          }
+        }
+        
+        // Get candidate details
+        const storedCandidates = localStorage.getItem('candidates');
+        if (storedCandidates) {
+          const allCandidates = JSON.parse(storedCandidates);
+          const candidate = allCandidates.find((c: any) => c.id === vote.candidateId);
+          if (candidate) {
+            candidateName = `${candidate.name} - ${candidate.position}`;
+          }
+        }
+        
+        voteHistory.push({
+          electionId: vote.electionId,
+          electionTitle,
+          votedFor: candidateName,
+          date: new Date(vote.timestamp).toISOString().split('T')[0]
+        });
+      });
+      
+      setUserVoteHistory(voteHistory);
+    }
+
+    setIsLoading(false);
+  }, [navigate, toast]);
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex justify-center">
+          <div className="animate-spin h-8 w-8 border-4 border-election-purple border-t-transparent rounded-full"></div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -70,7 +118,7 @@ const Dashboard = () => {
               <CardTitle className="text-sm font-medium text-gray-500">Active Elections</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{mockActiveElections.length}</div>
+              <div className="text-3xl font-bold">{activeElections.length}</div>
               <p className="text-sm text-gray-500 mt-1">Elections you can vote in now</p>
             </CardContent>
           </Card>
@@ -90,22 +138,30 @@ const Dashboard = () => {
               <CardTitle className="text-sm font-medium text-gray-500">Account Status</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-medium text-green-600 flex items-center">
+              <div className={`text-lg font-medium flex items-center ${userVerified ? 'text-green-600' : 'text-yellow-600'}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  {userVerified ? (
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  ) : (
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  )}
                 </svg>
-                Verified
+                {userVerified ? 'Verified' : 'Pending Verification'}
               </div>
-              <p className="text-sm text-gray-500 mt-1">Your account is in good standing</p>
+              <p className="text-sm text-gray-500 mt-1">
+                {userVerified 
+                  ? 'Your account is in good standing' 
+                  : 'Your account is waiting for admin approval'}
+              </p>
             </CardContent>
           </Card>
         </div>
 
         <div className="mb-8">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Elections You Can Vote In</h2>
-          {mockActiveElections.length > 0 ? (
+          {activeElections.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {mockActiveElections.map((election) => (
+              {activeElections.map((election) => (
                 <ElectionCard key={election.id} {...election} />
               ))}
             </div>
@@ -144,10 +200,10 @@ const Dashboard = () => {
                   {userVoteHistory.map((vote, index) => (
                     <tr key={index}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {vote.electionTitle}
+                        {vote.electionTitle || "Unknown Election"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {vote.votedFor}
+                        {vote.votedFor || "Unknown Candidate"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(vote.date).toLocaleDateString()}

@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
@@ -36,6 +35,21 @@ const featuredElections: ElectionProps[] = [
 ];
 
 const Index = () => {
+  const [featuredElections, setFeaturedElections] = useState<ElectionProps[]>([]);
+  
+  useEffect(() => {
+    // Load real elections from localStorage
+    const storedElections = localStorage.getItem('elections');
+    if (storedElections) {
+      const allElections = JSON.parse(storedElections);
+      // Get up to 3 elections to feature
+      const featuredItems = allElections.slice(0, 3);
+      setFeaturedElections(featuredItems);
+    } else {
+      setFeaturedElections([]);
+    }
+  }, []);
+
   return (
     <Layout>
       {/* Hero Section */}
@@ -96,9 +110,15 @@ const Index = () => {
             </p>
           </div>
           <div className="mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {featuredElections.map((election) => (
-              <ElectionCard key={election.id} {...election} />
-            ))}
+            {featuredElections.length > 0 ? (
+              featuredElections.map((election) => (
+                <ElectionCard key={election.id} {...election} />
+              ))
+            ) : (
+              <div className="col-span-3 text-center py-10">
+                <p className="text-gray-500">No elections have been added yet. Check back soon!</p>
+              </div>
+            )}
           </div>
           <div className="mt-12 text-center">
             <Button asChild variant="outline" className="border-election-purple text-election-purple hover:bg-election-light-purple/20">
