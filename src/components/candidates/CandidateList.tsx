@@ -13,8 +13,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CandidateListProps {
   candidates: CandidateProps[];
@@ -79,7 +79,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
     setIsDialogOpen(true);
   };
 
-  const handleConfirmVote = () => {
+  const handleConfirmVote = async () => {
     if (!selectedCandidate) return;
     
     setIsSubmitting(true);
@@ -102,6 +102,22 @@ const CandidateList: React.FC<CandidateListProps> = ({
       const votes = storedVotes ? JSON.parse(storedVotes) : [];
       votes.push(newVote);
       localStorage.setItem('votes', JSON.stringify(votes));
+      
+      // Also try to store it in Supabase if connected
+      try {
+        const user = (await supabase.auth.getSession()).data.session?.user;
+        if (user) {
+          // This will fail silently if the votes table doesn't exist
+          await supabase.from('votes').insert({
+            election_id: electionId,
+            candidate_id: selectedCandidate.id,
+            user_id: user.id,
+            created_at: new Date().toISOString()
+          });
+        }
+      } catch (error) {
+        console.log("Failed to save to Supabase, using localStorage only", error);
+      }
       
       // Show success message
       toast({

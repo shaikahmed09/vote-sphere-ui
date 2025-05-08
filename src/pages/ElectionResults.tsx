@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VoteCount {
   candidateId: string;
@@ -29,73 +30,91 @@ const ElectionResults = () => {
   const navigate = useNavigate();
   
   useEffect(() => {
-    // Load election data
-    const storedElections = localStorage.getItem('elections');
-    const storedCandidates = localStorage.getItem('candidates');
-    const storedVotes = localStorage.getItem('votes');
-    
-    if (storedElections && id) {
-      const elections = JSON.parse(storedElections);
-      const foundElection = elections.find((e: ElectionProps) => e.id === id);
+    const loadData = async () => {
+      setIsLoading(true);
       
-      if (foundElection) {
-        setElection(foundElection);
-        
-        // Load candidates for this election
-        if (storedCandidates) {
-          const allCandidates = JSON.parse(storedCandidates);
-          const electionCandidates = allCandidates.filter(
-            (c: CandidateProps) => c.electionId === id
-          );
-          setCandidates(electionCandidates);
-          
-          // Calculate vote counts
-          if (storedVotes) {
-            const votes = JSON.parse(storedVotes);
-            const electionVotes = votes.filter((vote: any) => vote.electionId === id);
-            
-            // Total votes in this election
-            const total = electionVotes.length;
-            setTotalVotes(total);
-            
-            // Count votes for each candidate
-            const counts: Record<string, number> = {};
-            
-            electionCandidates.forEach((candidate: CandidateProps) => {
-              counts[candidate.id] = 0;
-            });
-            
-            electionVotes.forEach((vote: any) => {
-              if (counts[vote.candidateId] !== undefined) {
-                counts[vote.candidateId]++;
-              }
-            });
-            
-            // Calculate percentages and create vote count objects
-            const voteCountsData = Object.entries(counts).map(([candidateId, count]) => ({
-              candidateId,
-              count,
-              percentage: total > 0 ? Math.round((count / total) * 100) : 0
-            }));
-            
-            // Sort by votes (highest first)
-            voteCountsData.sort((a, b) => b.count - a.count);
-            
-            setVoteCounts(voteCountsData);
-          }
+      // Try to load from Supabase first
+      try {
+        const session = (await supabase.auth.getSession()).data.session;
+        if (session) {
+          // If we have tables in Supabase, we could fetch from there
+          // This will be a placeholder for now and will fall back to localStorage
+          console.log("Supabase connected, but using localStorage for now");
         }
-      } else {
-        // Election not found
-        toast({
-          title: "Election Not Found",
-          description: "The requested election could not be found.",
-          variant: "destructive",
-        });
-        navigate('/elections');
+      } catch (error) {
+        console.log("Failed to get Supabase session, using localStorage", error);
       }
-    }
+      
+      // Load election data from localStorage
+      const storedElections = localStorage.getItem('elections');
+      const storedCandidates = localStorage.getItem('candidates');
+      const storedVotes = localStorage.getItem('votes');
+      
+      if (storedElections && id) {
+        const elections = JSON.parse(storedElections);
+        const foundElection = elections.find((e: ElectionProps) => e.id === id);
+        
+        if (foundElection) {
+          setElection(foundElection);
+          
+          // Load candidates for this election
+          if (storedCandidates) {
+            const allCandidates = JSON.parse(storedCandidates);
+            const electionCandidates = allCandidates.filter(
+              (c: CandidateProps) => c.electionId === id
+            );
+            setCandidates(electionCandidates);
+            
+            // Calculate vote counts
+            if (storedVotes) {
+              const votes = JSON.parse(storedVotes);
+              const electionVotes = votes.filter((vote: any) => vote.electionId === id);
+              
+              // Total votes in this election
+              const total = electionVotes.length;
+              setTotalVotes(total);
+              
+              // Count votes for each candidate
+              const counts: Record<string, number> = {};
+              
+              electionCandidates.forEach((candidate: CandidateProps) => {
+                counts[candidate.id] = 0;
+              });
+              
+              electionVotes.forEach((vote: any) => {
+                if (counts[vote.candidateId] !== undefined) {
+                  counts[vote.candidateId]++;
+                }
+              });
+              
+              // Calculate percentages and create vote count objects
+              const voteCountsData = Object.entries(counts).map(([candidateId, count]) => ({
+                candidateId,
+                count,
+                percentage: total > 0 ? Math.round((count / total) * 100) : 0
+              }));
+              
+              // Sort by votes (highest first)
+              voteCountsData.sort((a, b) => b.count - a.count);
+              
+              setVoteCounts(voteCountsData);
+            }
+          }
+        } else {
+          // Election not found
+          toast({
+            title: "Election Not Found",
+            description: "The requested election could not be found.",
+            variant: "destructive",
+          });
+          navigate('/elections');
+        }
+      }
+      
+      setIsLoading(false);
+    };
     
-    setIsLoading(false);
+    loadData();
   }, [id, navigate, toast]);
   
   // Get candidate by ID

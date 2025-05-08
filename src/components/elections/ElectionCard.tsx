@@ -73,7 +73,7 @@ const ElectionCard: React.FC<ElectionProps> = ({
       </CardContent>
       <CardFooter className="pt-2">
         <Button asChild className="w-full bg-gradient-to-r from-election-purple to-election-dark-purple hover:opacity-90">
-          <Link to={`/elections/${id}`}>
+          <Link to={status === 'completed' ? `/elections/${id}/results` : `/elections/${id}`}>
             {status === 'active' 
               ? 'Vote Now' 
               : status === 'completed' 
