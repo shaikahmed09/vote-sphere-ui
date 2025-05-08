@@ -107,13 +107,15 @@ const CandidateList: React.FC<CandidateListProps> = ({
       try {
         const user = (await supabase.auth.getSession()).data.session?.user;
         if (user) {
-          // This will fail silently if the votes table doesn't exist
-          await supabase.from('votes').insert({
-            election_id: electionId,
-            candidate_id: selectedCandidate.id,
-            user_id: user.id,
-            created_at: new Date().toISOString()
-          });
+          console.log("Attempting to save vote to Supabase");
+          // This is commented out until we create the votes table in Supabase
+          // const { error } = await supabase.from('votes').insert({
+          //   election_id: electionId,
+          //   candidate_id: selectedCandidate.id,
+          //   user_id: user.id,
+          //   created_at: new Date().toISOString()
+          // });
+          // if (error) throw error;
         }
       } catch (error) {
         console.log("Failed to save to Supabase, using localStorage only", error);
