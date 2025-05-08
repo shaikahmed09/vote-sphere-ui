@@ -103,19 +103,24 @@ const CandidateList: React.FC<CandidateListProps> = ({
       votes.push(newVote);
       localStorage.setItem('votes', JSON.stringify(votes));
       
-      // Also try to store it in Supabase if connected
+      // Also save to Supabase if connected
       try {
         const user = (await supabase.auth.getSession()).data.session?.user;
         if (user) {
-          console.log("Attempting to save vote to Supabase");
-          // This is commented out until we create the votes table in Supabase
-          // const { error } = await supabase.from('votes').insert({
-          //   election_id: electionId,
-          //   candidate_id: selectedCandidate.id,
-          //   user_id: user.id,
-          //   created_at: new Date().toISOString()
-          // });
-          // if (error) throw error;
+          console.log("Saving vote to Supabase");
+          const { error } = await supabase.from('votes').insert({
+            election_id: electionId,
+            candidate_id: selectedCandidate.id,
+            user_id: user.id,
+            created_at: new Date().toISOString()
+          });
+          
+          if (error) {
+            console.error("Supabase error:", error);
+            throw error;
+          } else {
+            console.log("Vote successfully saved to Supabase");
+          }
         }
       } catch (error) {
         console.log("Failed to save to Supabase, using localStorage only", error);

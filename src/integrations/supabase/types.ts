@@ -9,10 +9,40 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      votes: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          election_id: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          election_id: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          election_id?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      election_results: {
+        Row: {
+          candidate_id: string | null
+          election_id: string | null
+          vote_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never

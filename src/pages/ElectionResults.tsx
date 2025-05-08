@@ -33,46 +33,109 @@ const ElectionResults = () => {
     const loadData = async () => {
       setIsLoading(true);
       
-      // Try to load from Supabase first
-      try {
-        const session = (await supabase.auth.getSession()).data.session;
-        if (session) {
-          // If we have tables in Supabase, we could fetch from there
-          // This will be a placeholder for now and will fall back to localStorage
-          console.log("Supabase connected, but using localStorage for now");
-        }
-      } catch (error) {
-        console.log("Failed to get Supabase session, using localStorage", error);
+      if (!id) {
+        toast({
+          title: "Invalid Election",
+          description: "The election ID is missing.",
+          variant: "destructive",
+        });
+        navigate('/elections');
+        return;
       }
-      
-      // Load election data from localStorage
-      const storedElections = localStorage.getItem('elections');
-      const storedCandidates = localStorage.getItem('candidates');
-      const storedVotes = localStorage.getItem('votes');
-      
-      if (storedElections && id) {
+
+      try {
+        // Load election data from localStorage
+        const storedElections = localStorage.getItem('elections');
+        const storedCandidates = localStorage.getItem('candidates');
+        
+        if (!storedElections) {
+          toast({
+            title: "No Elections Found",
+            description: "There are no elections available.",
+            variant: "destructive",
+          });
+          navigate('/elections');
+          return;
+        }
+
         const elections = JSON.parse(storedElections);
         const foundElection = elections.find((e: ElectionProps) => e.id === id);
         
-        if (foundElection) {
-          setElection(foundElection);
+        if (!foundElection) {
+          toast({
+            title: "Election Not Found",
+            description: "The requested election could not be found.",
+            variant: "destructive",
+          });
+          navigate('/elections');
+          return;
+        }
+
+        setElection(foundElection);
+        
+        // Load candidates for this election
+        if (storedCandidates) {
+          const allCandidates = JSON.parse(storedCandidates);
+          const electionCandidates = allCandidates.filter(
+            (c: CandidateProps) => c.electionId === id
+          );
+          setCandidates(electionCandidates);
           
-          // Load candidates for this election
-          if (storedCandidates) {
-            const allCandidates = JSON.parse(storedCandidates);
-            const electionCandidates = allCandidates.filter(
-              (c: CandidateProps) => c.electionId === id
-            );
-            setCandidates(electionCandidates);
+          // Try to fetch votes from Supabase first
+          let electionVotes: any[] = [];
+          let voteCountsData: VoteCount[] = [];
+          let total = 0;
+          
+          try {
+            const { data: supabaseVotes, error } = await supabase
+              .from('election_results')
+              .select('*')
+              .eq('election_id', id);
             
-            // Calculate vote counts
-            if (storedVotes) {
-              const votes = JSON.parse(storedVotes);
-              const electionVotes = votes.filter((vote: any) => vote.electionId === id);
+            if (error) {
+              console.error("Error fetching from Supabase:", error);
+              throw error;
+            }
+            
+            if (supabaseVotes && supabaseVotes.length > 0) {
+              console.log("Votes fetched from Supabase:", supabaseVotes);
               
-              // Total votes in this election
-              const total = electionVotes.length;
-              setTotalVotes(total);
+              // Create vote counts from Supabase data
+              const counts: Record<string, number> = {};
+              
+              // Initialize counts for all candidates
+              electionCandidates.forEach((candidate: CandidateProps) => {
+                counts[candidate.id] = 0;
+              });
+              
+              // Add the vote counts from Supabase
+              supabaseVotes.forEach((voteResult: any) => {
+                if (counts[voteResult.candidate_id] !== undefined) {
+                  counts[voteResult.candidate_id] = voteResult.vote_count;
+                  total += voteResult.vote_count;
+                }
+              });
+              
+              // Calculate percentages and create vote count objects
+              voteCountsData = Object.entries(counts).map(([candidateId, count]) => ({
+                candidateId,
+                count,
+                percentage: total > 0 ? Math.round((count / total) * 100) : 0
+              }));
+            } else {
+              // Fallback to localStorage if no Supabase data
+              console.log("No votes found in Supabase, falling back to localStorage");
+              throw new Error("No Supabase votes available");
+            }
+          } catch (error) {
+            console.log("Using localStorage for vote counts", error);
+            
+            // Load votes from localStorage as fallback
+            const storedVotes = localStorage.getItem('votes');
+            
+            if (storedVotes) {
+              electionVotes = JSON.parse(storedVotes).filter((vote: any) => vote.electionId === id);
+              total = electionVotes.length;
               
               // Count votes for each candidate
               const counts: Record<string, number> = {};
@@ -88,30 +151,30 @@ const ElectionResults = () => {
               });
               
               // Calculate percentages and create vote count objects
-              const voteCountsData = Object.entries(counts).map(([candidateId, count]) => ({
+              voteCountsData = Object.entries(counts).map(([candidateId, count]) => ({
                 candidateId,
                 count,
                 percentage: total > 0 ? Math.round((count / total) * 100) : 0
               }));
-              
-              // Sort by votes (highest first)
-              voteCountsData.sort((a, b) => b.count - a.count);
-              
-              setVoteCounts(voteCountsData);
             }
           }
-        } else {
-          // Election not found
-          toast({
-            title: "Election Not Found",
-            description: "The requested election could not be found.",
-            variant: "destructive",
-          });
-          navigate('/elections');
+          
+          // Sort by votes (highest first)
+          voteCountsData.sort((a, b) => b.count - a.count);
+          
+          setVoteCounts(voteCountsData);
+          setTotalVotes(total);
         }
+      } catch (error) {
+        console.error("Error loading election data:", error);
+        toast({
+          title: "Error Loading Election",
+          description: "There was an error loading the election data.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
     
     loadData();
